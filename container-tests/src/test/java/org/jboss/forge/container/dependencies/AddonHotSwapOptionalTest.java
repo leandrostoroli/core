@@ -5,7 +5,6 @@ import javax.inject.Inject;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.forge.arquillian.archive.ForgeArchive;
-import org.jboss.forge.container.Addon;
 import org.jboss.forge.container.AddonDependency;
 import org.jboss.forge.container.AddonId;
 import org.jboss.forge.container.AddonRegistry;
@@ -19,7 +18,7 @@ import org.junit.runner.RunWith;
  * @author <a href="mailto:lincolnbaxter@gmail.com">Lincoln Baxter, III</a>
  */
 @RunWith(Arquillian.class)
-public class AddonHotSwapTest
+public class AddonHotSwapOptionalTest
 {
    @Deployment(order = 3)
    public static ForgeArchive getDeployment()
@@ -36,7 +35,7 @@ public class AddonHotSwapTest
       ForgeArchive archive = ShrinkWrap
                .create(ForgeArchive.class)
                .addBeansXML()
-               .addAsAddonDependencies(AddonDependency.create(AddonId.from("dep", "2")));
+               .addAsAddonDependencies(AddonDependency.create(AddonId.from("dep", "2"), false, true));
 
       return archive;
    }
@@ -58,19 +57,17 @@ public class AddonHotSwapTest
    private AddonRepository repository;
 
    @Test
-   public void testHotSwap() throws Exception
+   public void testHotSwapOptional() throws Exception
    {
       AddonId depOneId = AddonId.from("dep", "1");
       AddonId depTwoId = AddonId.from("dep", "2");
 
-      Addon depOne = registry.getRegisteredAddon(depOneId);
-      Addon depTwo = registry.getRegisteredAddon(depTwoId);
-
-      ClassLoader depOneClassloader = depOne.getClassLoader();
-      ClassLoader depTwoClassloader = depTwo.getClassLoader();
+      ClassLoader depTwoClassloader = registry.getRegisteredAddon(depTwoId).getClassLoader();
 
       repository.disable(depTwoId);
       Thread.sleep(1000);
+
+      ClassLoader depOneClassloader = registry.getRegisteredAddon(depOneId).getClassLoader();
 
       repository.enable(depTwoId);
       Thread.sleep(1000);
@@ -82,5 +79,4 @@ public class AddonHotSwapTest
       Assert.assertNotEquals(depTwoClassloader.toString(), registry.getRegisteredAddon(depTwoId).getClassLoader()
                .toString());
    }
-
 }

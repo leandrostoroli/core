@@ -105,7 +105,9 @@ public class NewProjectCommand implements UIWizard
          @Override
          public String convert(ProjectType source)
          {
-            return source.getType();
+            if (source != null)
+               return source.getType();
+            return "Select a Project Type";
          }
       });
 

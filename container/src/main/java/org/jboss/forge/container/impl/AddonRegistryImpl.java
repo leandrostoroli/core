@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -107,28 +108,42 @@ public class AddonRegistryImpl implements AddonRegistry
    public Future<Addon> start(Addon addon)
    {
       Assert.notNull(addon, "Addon must not be null.");
-      updateAddons();
-      AddonImpl addonImpl = getRegisteredAddon(addon.getId());
 
+      updateAddons();
+      AddonImpl addonToStart = getRegisteredAddon(addon.getId());
+
+      Future<Addon> future = null;
       synchronized (addons)
       {
 
-         if (addonImpl != null)
+         if (addonToStart != null)
          {
-            Future<Addon> future = addonImpl.getFuture();
-            if (addonImpl.getMissingDependencies().isEmpty() && future == null)
+            future = addonToStart.getFuture();
+            if (addonToStart.getMissingDependencies().isEmpty() && future == null)
             {
                logger.info("Starting addon (" + addon.getId() + ")");
-               AddonRunnable runnable = new AddonRunnable(forge, addonImpl);
+               AddonRunnable runnable = new AddonRunnable(forge, addonToStart);
                future = executor.submit(runnable, addon);
-               addonImpl.setRunnable(runnable);
-               addonImpl.setFuture(future);
+               addonToStart.setRunnable(runnable);
+               addonToStart.setFuture(future);
             }
-            return addonImpl.getFuture();
          }
 
-         return null;
       }
+
+      for (AddonImpl dependentAddon : addons)
+      {
+         for (AddonDependency dependency : dependentAddon.getDependencies())
+         {
+            if (addon.getId().equals(dependency.getId()) && dependentAddon.getFuture() != null)
+            {
+               stop(dependentAddon);
+               start(dependentAddon);
+            }
+         }
+      }
+
+      return future;
    }
 
    @Override
